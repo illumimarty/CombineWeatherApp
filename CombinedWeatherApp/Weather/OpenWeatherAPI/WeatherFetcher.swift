@@ -29,12 +29,53 @@
 import Foundation
 import Combine
 
+protocol WeatherFetchable {
+
+	 // MARK: AnyPublisher: a computation to-be; something that will execute ONCE subscribed to
+
+	func weeklyWeatherForecast(forCity city: String) -> AnyPublisher<WeeklyForecastResponse, WeatherError>
+	func currentWeatherForecast(forCity city: String) -> AnyPublisher<CurrentWeatherForecastResponse, WeatherError>
+}
+
 class WeatherFetcher {
   private let session: URLSession
   
   init(session: URLSession = .shared) {
     self.session = session
   }
+}
+
+extension WeatherFetcher: WeatherFetchable {
+	
+	func weeklyWeatherForecast(forCity city: String) -> AnyPublisher<WeeklyForecastResponse, WeatherError> {
+		return forecast(with: makeWeeklyForecastComponents(withCity: city))
+	}
+	
+	func currentWeatherForecast(forCity city: String) -> AnyPublisher<CurrentWeatherForecastResponse, WeatherError> {
+		return forecast(with: makeCurrentDayForecastComponents(withCity: city))
+	}
+	
+	private func forecast<T>(with components: URLComponents) -> AnyPublisher<T, WeatherError> where T: Decodable {
+		
+		// MARK: Creates an instance of the URL with URLcomponents
+		guard let url = components.url else {
+			let error = WeatherError.network(description: "Couldn't create URL")
+			return Fail(error: error).eraseToAnyPublisher()
+		}
+		
+		// MARK: Using the app's URLSession, fetch the data
+		return self.session.dataTaskPublisher(for: url)
+			.mapError { error in
+				// MARK: Handle fetching error
+				WeatherError.network(description: error.localizedDescription)
+			}
+			.flatMap(maxPublishers: .max(1)) { pair in
+				// MARK: Convert data to an object
+				decode(pair.data)
+			}
+			// TODO: Look into why we need this at the end of fetching or receiving data
+			.eraseToAnyPublisher()
+	}
 }
 
 // MARK: - OpenWeatherMap API
