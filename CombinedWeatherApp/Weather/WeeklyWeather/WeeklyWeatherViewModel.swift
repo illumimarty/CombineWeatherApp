@@ -89,10 +89,12 @@ class WeeklyWeatherViewModel: ObservableObject, Identifiable {
 		
 			// MARK: By storying this into disposables, the publisher will remain active until the app terminates
 			.store(in: &disposables)
-
-		
-
 	}
-	
+}
+
+extension WeeklyWeatherViewModel {
+	var currentWeatherView: some View {
+		return WeeklyWeatherBuilder.makeCurrentWeatherView(withCity: city, weatherFetcher: weatherFetcher)
+	}
 }
 
