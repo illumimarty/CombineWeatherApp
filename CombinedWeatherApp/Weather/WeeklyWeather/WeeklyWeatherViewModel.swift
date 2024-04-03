@@ -26,3 +26,61 @@
 /// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 /// THE SOFTWARE.
 
+import SwiftUI
+import Combine
+
+/*
+ - Conforms to ObservableObject so that others can view any changes in this class
+ - Conforms to Identifiable so it can be "identified" with a UUID or other id
+ */
+class WeeklyWeatherViewModel: ObservableObject, Identifiable {
+	
+	// MARK: @Published property wrapper creates a Publisher for the variable
+	@Published var city: String = ""
+	@Published var dataSource: [DailyWeatherRowViewModel] = []
+	private let weatherFetcher: WeatherFetchable
+	
+	/*
+	 MARK: A collection of references to requests
+	 */
+	private var disposables = Set<AnyCancellable>()
+	
+	init(weatherFetcher: WeatherFetchable) {
+		self.weatherFetcher = weatherFetcher
+	}
+	
+	func fetchWeather(forCity city: String) {
+		
+		weatherFetcher.weeklyWeatherForecast(forCity: city)
+		
+			// MARK: Map response to an array of ViewModel objects
+			.map { response in
+				response.list.map(DailyWeatherRowViewModel.init)
+			}
+			.map(Array.removeDuplicates)
+		
+			// MARK: Place response to the main queue where the UI lives
+			.receive(on: DispatchQueue.main)
+		
+		// MARK: Create a publisher to update the dataSource
+			.sink { [weak self] value in
+				guard let self = self else { return }
+				switch (value) {
+					case .failure:
+						self.dataSource = []
+					case .finished:
+						break
+				}
+			} receiveValue: { [weak self] forecast in
+				guard let self = self else { return }
+				self.dataSource = forecast
+			}
+		
+			// MARK: By storying this into disposables, the publisher will remain active until the app terminates
+			.store(in: &disposables)
+
+
+	}
+	
+}
+
