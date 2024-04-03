@@ -86,8 +86,9 @@ fileprivate extension WeatherFetcher {
     static let path = "/data/2.5"
 		static var key: String? {
 			let bundle = Bundle.main
-			let path = bundle.path(forResource: "Secrets", ofType: "plist")!
-			let dict = NSDictionary(contentsOf: URL(string: path)!)
+			let path = bundle.url(forResource: "Secrets", withExtension: "plist")
+//			let path = bundle.url(forResource: "Secrets", ofType: "plist")!
+			let dict = NSDictionary(contentsOf: path!)
 			
 			if let plist = dict {
 				return plist["API_KEY"] as? String

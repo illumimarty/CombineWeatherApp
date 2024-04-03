@@ -45,8 +45,18 @@ class WeeklyWeatherViewModel: ObservableObject, Identifiable {
 	 */
 	private var disposables = Set<AnyCancellable>()
 	
-	init(weatherFetcher: WeatherFetchable) {
+//	init(weatherFetcher: WeatherFetchable) {
+//		self.weatherFetcher = weatherFetcher
+//	}
+	
+	init(weatherFetcher: WeatherFetchable, scheduler: DispatchQueue = DispatchQueue(label: "WeatherViewModel")) {
 		self.weatherFetcher = weatherFetcher
+		
+		$city 						// observes the property and accesses it as a Publisher
+			.dropFirst(1)		// bc $city is initally empty, drop the value
+			.debounce(for: .seconds(0.5), scheduler: scheduler)
+			.sink(receiveValue: fetchWeather(forCity:))		// observe events
+			.store(in: &disposables)		// store the cancellab
 	}
 	
 	func fetchWeather(forCity city: String) {
@@ -58,6 +68,7 @@ class WeeklyWeatherViewModel: ObservableObject, Identifiable {
 				response.list.map(DailyWeatherRowViewModel.init)
 			}
 			.map(Array.removeDuplicates)
+		
 		
 			// MARK: Place response to the main queue where the UI lives
 			.receive(on: DispatchQueue.main)
@@ -72,13 +83,14 @@ class WeeklyWeatherViewModel: ObservableObject, Identifiable {
 						break
 				}
 			} receiveValue: { [weak self] forecast in
-				guard let self = self else { return }
+			guard let self = self else { return }
 				self.dataSource = forecast
 			}
 		
 			// MARK: By storying this into disposables, the publisher will remain active until the app terminates
 			.store(in: &disposables)
 
+		
 
 	}
 	
